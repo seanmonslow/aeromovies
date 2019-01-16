@@ -3,6 +3,9 @@
 <head>
     <title>Product App</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css" integrity="sha384-PmY9l28YgO4JwMKbTvgaS7XNZJ30MK9FAZjjzXtlqyZCqBY6X6bXIkM++IkyinN+" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js" integrity="sha384-vhJnz1OVIdLktyixHY4Uk3OHEwdQqPppqYR8+5mjsauETgLOcEynD9oPHhhz18Nw" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootbox.js/4.4.0/bootbox.min.js"></script>
 </head>
 <body>
     <div class="navbar navbar-inverse navbar-fixed-top">
@@ -12,7 +15,7 @@
             </div>
             <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav">
-                    <li>Home</li>
+                    <li class="active"><a id="addMovie" href="#">Add Movie <span class="sr-only">(current)</span></a></li>
                 </ul>
             </div>
         </div>
@@ -20,6 +23,7 @@
 
     <div id="selection" class="container" style="padding-top:70px;text-align:center;">
         <div class="row">
+            <h3>Genre</h3>
             <select id="category-select">
                 <option value="all">All</option>
                 <option value="comedy">Comedy</option>
@@ -29,8 +33,6 @@
     </div>
     <div id="movies" class="container" style="text-align:center;">
     </div>
-
-    <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-2.0.3.min.js"></script>
     <script>
         var uri = 'api/movies';
 
@@ -51,14 +53,14 @@
                 if (element.options[element.selectedIndex].value == "all") {
                     grabAllMovies();
                 } else {
-                    fetch('/api/movies/getmoviesbycategory/'+category).
+                    fetch('/api/movies/getmoviesbycategory/' + category).
                         then((response) => {
                             if (response.status !== 200) {
                                 console.log('Looks like there was a problem. Status Code: ' +
                                     response.status);
                                 return;
                             }
-                            response.json().then(function (data) {
+                            response.json().then((data) => {
                                 var div;
                                 for (let i = 0; i < data.length; i++) {
                                     if (i % 3 == 0) {
@@ -66,10 +68,7 @@
                                         div.className = "row";
                                         document.getElementById("movies").appendChild(div);
                                     }
-                                    var movie = document.createElement("div");
-                                    movie.className = "col-md-3";
-                                    movie.style = "text-align:center; margin:10px; border-radius: 10px; border:3px; background-color:#afe6af; padding-bottom:5px; padding-top:5px;";
-                                    movie.innerHTML = "<img src='" + data[i].imageurl + "' style='height:auto; width:25%;'><h2>" + data[i].Title + "</h2><p>" + data[i].Category + "</p><button data-id='" + data[i].Id + "' id='moreDetails' class='btn btn-success'>More Details</button>";
+                                    var movie = createMovieGrid(data, i);
                                     div.appendChild(movie);
                                 }
                             });
@@ -81,6 +80,7 @@
         })
 
         document.addEventListener('click', (e) => {
+            e.preventDefault();
             if (e.target && e.target.id == 'moreDetails') {
                 console.log(this);
                 var element = e.target;
@@ -92,7 +92,7 @@
                                 response.status);
                             return;
                         }
-                        response.json().then(function (data) {
+                        response.json().then((data) => {
                             console.log(element);
                             var paragraph = element.parentNode.getElementsByClassName("details");
                             if (paragraph.length == 0) {
@@ -101,11 +101,51 @@
                                 paragraph.innerHTML = data.Details;
                                 element.parentNode.insertBefore(paragraph, element);
                             }
+                            if (element.innerHTML == "More Details") {
+                                var paragraph = element.parentNode.getElementsByClassName("details");
+                                element.innerHTML = "Less Details";
+                                paragraph[0].style.display = "";
+                            } else {
+                                element.innerHTML = "More Details";
+                                paragraph[0].style.display = "none";
+                            }
                         });
                     }).catch((err) => {
                         console.log("api not working");
                     });
-            };
+            } else if (e.target && e.target.id == "addMovie") {
+                bootbox.confirm("<form id='moviesForm' action=\" /api/movies/postmovie\" method=\"post\">\
+                                Movie Title:<input id='title' type='text' name='title' /><br/>\
+                                Genre:<select name=\"category\" id=\"category\" id='category'>\
+                                    <option value=\"Comedy\">Comedy</option>\
+                                    <option value=\"Action\">Action</option>\
+                            </select>\<br/>\
+                                Image URL:<input type='text' name='imageurl' id=\"imageurl\" /><br/>\
+                                </form>",
+                    function (result) {
+                        if (result) {
+                            var form = document.getElementById("moviesForm");
+                            console.log(form);
+                            var title = form.querySelector("#title").value;
+                            var category = form.querySelector("#category").value;
+                            //category = category.options[category.selectedIndex].value;
+                            var imageurl = form.querySelector("#imageurl").value;
+                            var data = { title: title, category: category, imageurl: imageurl };
+                            console.log(data);
+                            fetch("/api/movies/postmovie",
+                                {
+                                    method: "POST",
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(data)
+                                })
+                                .then(function (res) { return res.json(); })
+                                .then(function (data) { alert(JSON.stringify(data)) })
+                        }
+                    });
+            }
         });
 
         function grabAllMovies() {
@@ -116,7 +156,7 @@
                             response.status);
                         return;
                     }
-                    response.json().then(function (data) {
+                    response.json().then((data) => {
                         var div;
                         for (let i = 0; i < data.length; i++) {
                             if (i % 3 == 0) {
@@ -124,10 +164,7 @@
                                 div.className = "row";
                                 document.getElementById("movies").appendChild(div);
                             }
-                            var movie = document.createElement("div");
-                            movie.className = "col-md-3";
-                            movie.style = "text-align:center; margin:10px; border-radius: 10px; border:3px; background-color:#afe6af; padding-bottom:5px; padding-top:5px;";
-                            movie.innerHTML = "<img src='" + data[i].imageurl + "' style='height:auto; width:25%;'><h2>" + data[i].Title + "</h2><p>" + data[i].Category + "</p><button data-id='" + data[i].Id + "' id='moreDetails' class='btn btn-success'>More Details</button>";
+                            var movie = createMovieGrid(data, i);
                             div.appendChild(movie);
                         }
                     });
@@ -136,8 +173,15 @@
                 });
         }
 
+        function createMovieGrid(data, i) {
+            var movie = document.createElement("div");
+            movie.className = "col-md-3";
+            movie.style = "text-align:center; margin:10px; border-radius: 10px; border:3px; background-color:#eaecea; padding-bottom:5px; padding-left:0px; padding-right:0px;";
+            movie.innerHTML = "<img src='" + data[i].imageurl + "' style='height:auto; width:100%; border-top-left-radius:3px; border-top-right-radius:3px;'><h2>" + data[i].Title + "</h2><p>" + data[i].Category + "</p><button data-id='" + data[i].Id + "' id='moreDetails' class='btn btn-success'>More Details</button>";
+            return movie;
+        }
+
         documentready(() => {
-            console.log("hello");
             grabAllMovies();
         });
     </script>
